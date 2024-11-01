@@ -156,25 +156,34 @@ def predict():
 def predict_single():
     try:
         data = request.json
+        print("Received data:", data)  # Log the received data
+        
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
         try:
             df = pd.DataFrame([data])
-            processed_data = data_processor.process_data(df)  # Use the instance
+            print("DataFrame columns:", df.columns.tolist())  # Log DataFrame columns
+            
+            processed_data = data_processor.process_data(df)
+            print("Processed data:", processed_data)  # Log processed data
             
             if processed_data is None or processed_data.empty:
                 return jsonify({'error': 'Data processing failed'}), 400
             
             prediction = detector.predict(processed_data)
             
+            # Convert NumPy types to Python native types
+            prediction_value = int(prediction[0]) if hasattr(prediction[0], 'item') else prediction[0]
+            
             return jsonify({
                 'success': True,
-                'prediction': prediction[0],
-                'is_anomaly': bool(prediction[0])
+                'prediction': prediction_value,
+                'is_anomaly': bool(prediction_value)
             })
 
         except ValueError as e:
+            print(f"Validation error: {str(e)}")
             return jsonify({'error': str(e)}), 400
             
     except Exception as e:
