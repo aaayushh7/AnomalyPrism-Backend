@@ -8,7 +8,7 @@ def create_app():
     # Configure CORS
     CORS(app, 
          resources={r"/api/*": {
-             "origins": ["http://localhost:3000"],
+             "origins": ["https://anomaly-prism-frontend.vercel.app/"],
              "methods": ["GET", "POST", "OPTIONS"],
              "allow_headers": ["Content-Type", "Accept"],
              "supports_credentials": True,
@@ -19,7 +19,7 @@ def create_app():
     # Additional CORS handling
     @app.after_request
     def after_request(response):
-        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+        response.headers.add('Access-Control-Allow-Origin', 'https://anomaly-prism-frontend.vercel.app/')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Accept')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         response.headers.add('Access-Control-Allow-Credentials', 'true')
