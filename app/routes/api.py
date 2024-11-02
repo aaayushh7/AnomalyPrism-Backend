@@ -59,46 +59,52 @@ def safe_read_csv(file):
 @bp.route('/train', methods=['POST'])
 def train():
     try:
-        print("Received training request")  # Debug log
+        print("Received training request")
         
         if 'file' not in request.files:
-            print("No file in request")  # Debug log
+            print("No file in request")
             return jsonify({'error': 'No file uploaded'}), 400
         
         file = request.files['file']
-        print(f"Received file: {file.filename}")  # Debug log
+        print(f"Received file: {file.filename}")
         
         try:
             validate_csv_file(file)
-            print("File validation passed")  # Debug log
+            print("File validation passed")
             
             df = safe_read_csv(file)
-            print(f"Data shape before processing: {df.shape}")  # Debug log
+            print(f"Data shape before processing: {df.shape}")
             
-            processed_data = data_processor.process_data(df)  # Use the instance
-            print(f"Data shape after processing: {processed_data.shape if processed_data is not None else 'None'}")  # Debug log
+            processed_data = data_processor.process_data(df)
+            print(f"Data shape after processing: {processed_data.shape if processed_data is not None else 'None'}")
             
             if processed_data is None or len(processed_data) == 0:
-                print("Data processing failed - empty result")  # Debug log
+                print("Data processing failed - empty result")
                 return jsonify({'error': 'Data processing failed - no valid data after processing'}), 400
             
+            # Train the model and get results
             result = detector.train(processed_data)
-            print(f"Training result: {result}")  # Debug log
+            print(f"Training result: {result}")
             
             if result.get('status') == 'error':
                 return jsonify({'error': result['message']}), 500
             
+            # Prepare visualization data from the processed data
+            viz_data = detector.prepare_visualization_data(processed_data)
+            
+            # Return success response with visualization data
             return jsonify({
-                'success': True,
+                'status': 'success',
                 'message': result['message'],
+                'visualization_data': viz_data,
                 'details': {
                     'data_shape': result.get('data_shape'),
-                    'status': result['status']
+                    'model_status': result['status']
                 }
             })
 
         except ValueError as e:
-            print(f"Validation error: {str(e)}")  # Debug log
+            print(f"Validation error: {str(e)}")
             return jsonify({'error': str(e)}), 400
         
     except Exception as e:
@@ -132,17 +138,13 @@ def predict():
             if not response_data['success']:
                 return jsonify({'error': 'Error formatting prediction response'}), 500
 
-            # Access the nested 'data' key
-            return jsonify({
-                'success': True,
-                'data': {
-                    'devices': response_data['data']['devices'],
-                    'total_devices': response_data['data']['total_devices'],
-                    'total_anomalies': response_data['data']['total_anomalies'],
-                    'location_stats': response_data['data'].get('location_stats', []),
-                    'timestamps': response_data['data'].get('timestamps', [])
-                }
-            })
+            # Generate visualization data from response
+            viz_data = detector.prepare_prediction_visualization2(response_data)
+            
+            # Add visualization data to response
+            response_data['data']['visualization_data'] = viz_data
+
+            return jsonify(response_data)
 
         except ValueError as e:
             return jsonify({'error': str(e)}), 400

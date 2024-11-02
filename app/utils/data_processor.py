@@ -8,6 +8,58 @@ from sklearn.preprocessing import LabelEncoder
 class DataProcessor:
     def __init__(self):
         self.label_encoders = {}
+        self.required_columns = [
+            'lock_status_encoded', 'name_encoded', 'DeviceStatus_encoded',
+            'manufacturerName_encoded', 'locationId_encoded', 'ownerId_encoded',
+            'roomId_encoded', 'device_id_encoded', 'hour', 'minute',
+            'day_of_week', 'is_weekend', 'device_activity_count',
+            'location_activity_count'
+        ]
+        
+    def preprocess_data(self, df):
+        """
+        Process the input DataFrame for anomaly detection.
+        
+        Args:
+            df (pd.DataFrame): Input DataFrame with encoded features
+            
+        Returns:
+            pd.DataFrame: Processed DataFrame ready for the model
+        """
+        try:
+            # Create a copy to avoid modifying the original DataFrame
+            processed_df = df.copy()
+            
+            # Verify all required columns are present
+            missing_columns = [col for col in self.required_columns if col not in processed_df.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns: {missing_columns}")
+            
+            # Select only the required columns in the correct order
+            processed_df = processed_df[self.required_columns]
+            
+            # Ensure all columns have numeric data
+            for column in processed_df.columns:
+                if not np.issubdtype(processed_df[column].dtype, np.number):
+                    try:
+                        processed_df[column] = pd.to_numeric(processed_df[column])
+                    except ValueError:
+                        # If conversion fails, try label encoding
+                        if column not in self.label_encoders:
+                            self.label_encoders[column] = LabelEncoder()
+                        processed_df[column] = self.label_encoders[column].fit_transform(processed_df[column])
+            
+            # Fill any remaining NaN values with 0
+            processed_df = processed_df.fillna(0)
+            
+            print(f"Processed DataFrame shape: {processed_df.shape}")
+            print(f"Processed columns: {processed_df.columns.tolist()}")
+            
+            return processed_df
+            
+        except Exception as e:
+            print(f"Error in process_data: {str(e)}")
+            raise
 
     def parse_timestamp(self, timestamp_str):
         """Parse timestamp string to datetime object"""
@@ -28,14 +80,31 @@ class DataProcessor:
             # If all else fails, try pandas default parser
             return pd.to_datetime(timestamp_str)
 
-    def process_data(self, df):
+    def process_data(self, data):
         """Process and clean smart lock data for anomaly detection"""
         try:
             print("Starting data processing...")
+            
+            # If data is a string (space-separated format), convert it to DataFrame
+            if isinstance(data, str):
+                # Split the data into lines and then into columns
+                lines = data.strip().split('\n')
+                # First line contains headers
+                headers = lines[0].split()
+                # Rest of the lines contain data
+                rows = [line.split() for line in lines[1:]]
+                df = pd.DataFrame(rows, columns=headers)
+            else:
+                df = data.copy()
+            
             print(f"Input DataFrame shape: {df.shape}")
             print("Columns:", df.columns.tolist())
             
             df_copy = df.copy()
+            
+            # Ensure timestamp column exists and is properly formatted
+            if 'timestamp' not in df_copy.columns:
+                raise ValueError("timestamp column not found in input data")
             
             # Convert timestamp using custom parser
             df_copy['timestamp'] = pd.to_datetime(df_copy['timestamp'].apply(self.parse_timestamp))
